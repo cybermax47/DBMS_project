@@ -72,7 +72,7 @@ def delete_package(package_id):
     db.session.delete(package)
     db.session.commit()
     return jsonify({'message': 'Package deleted'})
-
+#this is a main function
 # Running the Flask app
 if __name__ == '__main__':
     app.run(debug=True)
