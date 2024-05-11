@@ -1,0 +1,102 @@
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    remember_token BOOLEAN DEFAULT FALSE
+);
+CREATE TABLE packages (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    location VARCHAR(255) NOT NULL,
+    price_current DECIMAL(10, 2) NOT NULL,
+    price_old DECIMAL(10, 2),
+    stars INTEGER CHECK (stars BETWEEN 0 AND 5)
+);
+CREATE TABLE bookings (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    package_id INTEGER NOT NULL,
+    num_guests INTEGER NOT NULL,
+    arrival_date DATE NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (package_id) REFERENCES packages(id)
+);
+
+CREATE TABLE contacts (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(255),
+    subject VARCHAR(255),
+    message TEXT NOT NULL
+);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM   pg_class c
+        JOIN   pg_namespace n ON n.oid = c.relnamespace
+        WHERE  c.relname = 'idx_user_email'
+        AND    n.nspname = 'public'  -- optionally specify the schema
+    )
+    THEN
+        CREATE INDEX idx_user_email ON users (email);
+    END IF;
+END$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM   pg_class c
+        JOIN   pg_namespace n ON n.oid = c.relnamespace
+        WHERE  c.relname = 'idx_packages_location'
+        AND    n.nspname = 'public'  -- optionally specify the schema if not public
+    )
+    THEN
+        CREATE INDEX idx_packages_location ON packages (location);
+    END IF;
+END$$;
+
+CREATE OR REPLACE FUNCTION log_new_booking()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO booking_logs (booking_id, log_time)
+  VALUES (NEW.id, NOW());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER booking_after_insert
+AFTER INSERT ON bookings
+FOR EACH ROW EXECUTE FUNCTION log_new_booking();
+
+CREATE OR REPLACE PROCEDURE add_package(package_name TEXT, location TEXT, price DECIMAL)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  INSERT INTO packages (name, location, price_current) VALUES (package_name, location, price)
+  RETURNING id;
+END;
+$$;
+CREATE OR REPLACE FUNCTION calculate_discount(price DECIMAL, discount_rate DECIMAL)
+RETURNS DECIMAL AS $$
+BEGIN
+  RETURN price * discount_rate;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM   pg_class c
+        JOIN   pg_namespace n ON n.oid = c.relnamespace
+        WHERE  c.relname = 'idx_user_email'
+        AND    n.nspname = 'public'  -- optionally specify the schema
+    )
+    THEN
+        CREATE INDEX idx_user_email ON users (email);
+    END IF;
+END$$;
